@@ -142,6 +142,49 @@ with tab2:
     sns.countplot(data=df, x='label', ax=ax)
     ax.set_title('Distribution of Sentiment Labels')
     st.pyplot(fig)
+    
+    # Tambahkan bagian baru untuk menampilkan kata-kata yang sering muncul
+    st.subheader("Most Influential Words by Sentiment")
+    
+    # Dapatkan fitur names dari TF-IDF
+    feature_names = tfidf.get_feature_names_out()
+    
+    # Dapatkan coefficients dari model SVM
+    if hasattr(model, 'coef_'):
+        coefficients = model.coef_[0]
+    else:  # Jika menggunakan pipeline, akses model-nya terlebih dahulu
+        coefficients = model.named_steps['classifier'].coef_[0]
+    
+    # Buat DataFrame untuk weights
+    weights_df = pd.DataFrame({
+        'Word': feature_names,
+        'Weight': coefficients
+    })
+    
+    # Urutkan berdasarkan weight
+    top_positive = weights_df.sort_values('Weight', ascending=False).head(10)
+    top_negative = weights_df.sort_values('Weight', ascending=True).head(10)
+    
+    # Buat visualisasi
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**Top 10 Positive Words (Most Influential)**")
+        fig_pos, ax_pos = plt.subplots(figsize=(8, 5))
+        sns.barplot(data=top_positive, y='Word', x='Weight', ax=ax_pos, palette='Blues_d')
+        ax_pos.set_xlabel('Weight (Positive Influence)')
+        ax_pos.set_ylabel('')
+        st.pyplot(fig_pos)
+        st.dataframe(top_positive)
+    
+    with col2:
+        st.markdown("**Top 10 Negative Words (Most Influential)**")
+        fig_neg, ax_neg = plt.subplots(figsize=(8, 5))
+        sns.barplot(data=top_negative, y='Word', x='Weight', ax=ax_neg, palette='Reds_d')
+        ax_neg.set_xlabel('Weight (Negative Influence)')
+        ax_neg.set_ylabel('')
+        st.pyplot(fig_neg)
+        st.dataframe(top_negative)
 
 # Tab 3: Sentiment Analysis
 with tab3:
