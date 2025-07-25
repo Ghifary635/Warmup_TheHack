@@ -146,36 +146,75 @@ with tab2:
 # Tab 3: Sentiment Analysis
 with tab3:
     st.header("Sentiment Analysis")
-    
-    user_input = st.text_area("Enter tweet text:", "", key="tweet_input")
-    
-    if st.button("Analyze Sentiment", key="analyze_btn"):
-        if not user_input.strip():
-            st.warning("Please enter some text.")
-            st.stop()
-        
-        try:
-            processed = preprocess_text([user_input])
-            vectorized = tfidf.transform(processed)
-            
-            prediction = model.predict(vectorized)[0]
-            decision_score = model.decision_function(vectorized)[0]
-            
-            prob_positive = 1 / (1 + np.exp(-decision_score))
-            prob_negative = 1 - prob_positive
-            
-            sentiment = "Positive" if prediction == 1 else "Negative"
-            confidence = max(prob_positive, prob_negative) * 100
-            
-            st.subheader("Result")
-            st.metric("Sentiment", sentiment)
-            st.metric("Confidence", f"{confidence:.1f}%")
-            
-            chart_df = pd.DataFrame({
-                "Sentiment": ["Negative", "Positive"],
-                "Probability": [prob_negative, prob_positive]
-            })
-            st.bar_chart(chart_df.set_index("Sentiment"), use_container_width=True)
-        
-        except Exception as e:
-            st.error(f"An error occurred: {str(e)}")
+
+    input_mode = st.radio("Select input type:", ["Manual Text", "Upload CSV"], key="input_mode")
+
+    if input_mode == "Manual Text":
+        user_input = st.text_area("Enter tweet text:", "", key="tweet_input")
+
+        if st.button("Analyze Sentiment", key="analyze_btn"):
+            if not user_input.strip():
+                st.warning("Please enter some text.")
+                st.stop()
+
+            try:
+                processed = preprocess_text([user_input])
+                vectorized = tfidf.transform(processed)
+
+                prediction = model.predict(vectorized)[0]
+                decision_score = model.decision_function(vectorized)[0]
+
+                prob_positive = 1 / (1 + np.exp(-decision_score))
+                prob_negative = 1 - prob_positive
+
+                sentiment = "Positive" if prediction == 1 else "Negative"
+                confidence = max(prob_positive, prob_negative) * 100
+
+                st.subheader("Result")
+                st.metric("Sentiment", sentiment)
+                st.metric("Confidence", f"{confidence:.1f}%")
+
+                chart_df = pd.DataFrame({
+                    "Sentiment": ["Negative", "Positive"],
+                    "Probability": [prob_negative, prob_positive]
+                })
+                st.bar_chart(chart_df.set_index("Sentiment"), use_container_width=True)
+
+            except Exception as e:
+                st.error(f"An error occurred: {str(e)}")
+
+    else:  # Upload CSV
+        uploaded_file = st.file_uploader("Upload a CSV file with a column named 'text'", type="csv")
+
+        if uploaded_file is not None:
+            try:
+                df = pd.read_csv(uploaded_file)
+                if 'text' not in df.columns:
+                    st.error("The uploaded CSV must contain a column named 'text'.")
+                    st.stop()
+
+                processed_texts = preprocess_text(df['text'].tolist())
+                vectorized = tfidf.transform(processed_texts)
+
+                predictions = model.predict(vectorized)
+                scores = model.decision_function(vectorized)
+
+                prob_pos = 1 / (1 + np.exp(-scores))
+                prob_neg = 1 - prob_pos
+
+                df['Sentiment'] = ["Positive" if p == 1 else "Negative" for p in predictions]
+                df['Confidence'] = np.maximum(prob_pos, prob_neg) * 100
+
+                st.success("Prediction completed!")
+                st.dataframe(df[['text', 'Sentiment', 'Confidence']])
+
+                csv_output = df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="Download Results as CSV",
+                    data=csv_output,
+                    file_name="sentiment_results.csv",
+                    mime="text/csv"
+                )
+
+            except Exception as e:
+                st.error(f"An error occurred while processing the file: {str(e)}")
